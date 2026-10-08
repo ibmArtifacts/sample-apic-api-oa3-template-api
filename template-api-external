@@ -1,0 +1,149 @@
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: Template API External
+  x-ibm-name: template-api-external
+servers:
+  - url: /api-base-path
+x-ibm-configuration:
+  properties: {}
+  cors:
+    enabled: true
+  gateway: datapower-api-gateway
+  type: rest
+  phase: realized
+  enforced: true
+  testable: true
+  assembly:
+    execute:
+      - switch:
+          version: 2.1.0
+          title: switch
+          case:
+            - condition: 'false'
+              execute:
+                - gatewayscript:
+                    version: 2.0.0
+                    title: Get OAuth token
+                    description: >-
+                      This script calls the token provider to retrieve an oauth
+                      token via client-credential and sets it to the auth
+                      header.
+
+                      Input required either from hard-coding or from inbound
+                      token.
+                    source: "var urlopen = require('urlopen');\r\n \r\n// ---- Settings -------------------------------------------------------------\r\nvar BASE_URL      = 'ENTER_BASE_URL_HERE';           // e.g. https://auth.example.com\r\nvar TOKEN_PATH    = '/confidential/oauth2/token';\r\nvar CLIENT_ID     = 'ENTER_CLIENTID_HERE';\r\nvar CLIENT_SECRET = 'ENTER_CLIENTSECRET_HERE';\r\n \r\n// One or more scopes, always written as an array\r\nvar SCOPES        = ['SCOPE_1', 'SCOPE_2'];\r\n \r\n// How multiple scopes are joined in the request.\r\n// RFC 6749 says a single space; Postman example used \", \". Use whichever\r\n// your authorization server expects.\r\nvar SCOPE_DELIMITER = ' ';\r\n \r\n// var SSL_CLIENT_PROFILE = 'your-tls-client-profile';  // uncomment if required\r\n// ---------------------------------------------------------------------------\r\n \r\nfunction fail(name, message, status) {\r\n  context.reject(name, message);\r\n  context.message.statusCode = status;\r\n}\r\n \r\n// Same behaviour as URLSearchParams: percent-encode, with space as '+'\r\nfunction formEncode(value) {\r\n  return encodeURIComponent(value).replace(/%20/g, '+');\r\n}\r\n \r\nfunction buildScope(scopes) {\r\n  var seen = {};\r\n  var out = [];\r\n  for (var i = 0; i < scopes.length; i++) {\r\n    var s = String(scopes[i]).trim();\r\n    if (s && !seen[s]) {\r\n      seen[s] = true;\r\n      out.push(s);\r\n    }\r\n  }\r\n  return out.join(SCOPE_DELIMITER);\r\n}\r\n \r\nvar scope = buildScope(SCOPES);\r\n \r\nif (/^ENTER_|^SCOPE_/.test(BASE_URL + CLIENT_ID + CLIENT_SECRET + scope) ||\r\n    BASE_URL.indexOf('ENTER_') === 0 || CLIENT_ID.indexOf('ENTER_') === 0 ||\r\n    CLIENT_SECRET.indexOf('ENTER_') === 0) {\r\n  fail('OAuthConfigError',\r\n       'Placeholder values have not been replaced in the script',\r\n       '500 Internal Server Error');\r\n} else {\r\n  var body =\r\n    'client_id='      + formEncode(CLIENT_ID) +\r\n    '&client_secret=' + formEncode(CLIENT_SECRET) +\r\n    '&grant_type=client_credentials';\r\n  if (scope) {\r\n    body += '&scope=' + formEncode(scope);\r\n  }\r\n \r\n  var options = {\r\n    target: BASE_URL + TOKEN_PATH,\r\n    method: 'POST',\r\n    headers: {\r\n      'Content-Type': 'application/x-www-form-urlencoded',\r\n      'Accept': 'application/json'\r\n    },\r\n    data: body,\r\n    timeout: 30\r\n    // sslClientProfile: SSL_CLIENT_PROFILE\r\n  };\r\n \r\n  urlopen.open(options, function (error, response) {\r\n    if (error) {\r\n      fail('OAuthConnectionError', 'Token endpoint call failed: ' + error, '502 Bad Gateway');\r\n      return;\r\n    }\r\n \r\n    var status = response.statusCode;\r\n \r\n    response.readAsJSON(function (readError, json) {\r\n      if (readError) {\r\n        fail('OAuthResponseError', 'Could not parse token response: ' + readError, '502 Bad Gateway');\r\n        return;\r\n      }\r\n \r\n      if (status !== 200 || !json || !json.access_token) {\r\n        var detail = (json && (json.error_description || json.error)) || ('HTTP ' + status);\r\n        fail('OAuthTokenError', 'Token request rejected: ' + detail, '502 Bad Gateway');\r\n        return;\r\n      }\r\n \r\n      // Token call succeeded: set the Authorization header to Bearer <token>\r\n      context.message.header.set('Authorization', 'Bearer ' + json.access_token);\r\n    });\r\n  });\r\n}"
+                - invoke:
+                    version: 2.3.0
+                    title: invoke
+                    backend-type: detect
+                    header-control:
+                      type: blocklist
+                      values: []
+                    parameter-control:
+                      type: allowlist
+                      values: []
+                    http-version: HTTP/1.1
+                    timeout: 60
+                    verb: keep
+                    chunked-uploads: true
+                    persistent-connection: true
+                    cache-response: protocol
+                    cache-ttl: 900
+                    websocket-upgrade: false
+                    graphql-send-type: detect
+                    target-url: BACKEND_URL_HERE_OR_CATALOG_PROPERTY
+                    stop-on-error:
+                      - ConnectionError
+                      - OperationError
+                      - SOAPError
+            - condition: 'false'
+              execute:
+                - invoke:
+                    version: 2.3.0
+                    title: invoke
+                    backend-type: detect
+                    header-control:
+                      type: blocklist
+                      values: []
+                    parameter-control:
+                      type: allowlist
+                      values: []
+                    http-version: HTTP/1.1
+                    timeout: 60
+                    verb: keep
+                    chunked-uploads: true
+                    persistent-connection: true
+                    cache-response: protocol
+                    cache-ttl: 900
+                    websocket-upgrade: false
+                    graphql-send-type: detect
+                    target-url: BACKEND_URL_HERE_OR_CATALOG_PROPERTY
+                    stop-on-error:
+                      - ConnectionError
+                      - OperationError
+                      - SOAPError
+          description: 'Case 0: Uses'
+  activity-log:
+    enabled: true
+    success-content: activity
+    error-content: payload
+paths:
+  /:
+    get:
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: string
+    put:
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: string
+    post:
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: string
+    delete:
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: string
+    head:
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: string
+    patch:
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: string
+components:
+  securitySchemes:
+    client_id:
+      type: apiKey
+      x-key-type: client_id
+      name: client_id
+      in: header
+security:
+  - client_id: []
